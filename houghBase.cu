@@ -171,7 +171,7 @@ int main (int argc, char **argv)
   cudaEventSynchronize(stop);
   float milliseconds = 0;
   cudaEventElapsedTime(&milliseconds, start, stop);
-  printf("Work took: %f s\n", milliseconds);
+  printf("Work took: %f ms\n", milliseconds);
 
   // get results from device
   cudaMemcpy (h_hough, d_hough, sizeof (int) * degreeBins * rBins, cudaMemcpyDeviceToHost);
