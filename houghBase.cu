@@ -213,9 +213,9 @@ int main (int argc, char **argv)
 
   free (pcCos);
   free (pcSin);
-  free (h_hough)
-  cudaFree ((void *) d_in)
-  cudaFree ((void *) d_hough)
+  free (h_hough);
+  cudaFree ((void *) d_in);
+  cudaFree ((void *) d_hough);
   cudaDeviceReset();
   
 
