@@ -13,12 +13,19 @@
 #include <math.h>
 #include <cuda.h>
 #include <string.h>
+#include "common/pgm.h"
 #include "pgm.h"
 
 const int degreeInc = 2;
 const int degreeBins = 180 / degreeInc;
 const int rBins = 100;
 const float radInc = degreeInc * M_PI / 180;
+
+// Memoria constante respecot a los senos y cosenos
+__constant__ float d_Cos[degreeBins];
+__constant__ float d_Sin[degreeBins];
+
+
 //*****************************************************************
 // The CPU function returns a pointer to the accummulator
 void CPU_HoughTran (unsigned char *pic, int w, int h, int **acc)
@@ -50,11 +57,7 @@ void CPU_HoughTran (unsigned char *pic, int w, int h, int **acc)
       }
 }
 
-//*****************************************************************
-// TODO usar memoria constante para la tabla de senos y cosenos
-// inicializarlo en main y pasarlo al device
-//__constant__ float d_Cos[degreeBins];
-//__constant__ float d_Sin[degreeBins];
+
 
 //*****************************************************************
 //TODO Kernel memoria compartida
@@ -72,7 +75,8 @@ void CPU_HoughTran (unsigned char *pic, int w, int h, int **acc)
 // The accummulator memory needs to be allocated by the host in global memory
 __global__ void GPU_HoughTran (unsigned char *pic, int w, int h, int *acc, float rMax, float rScale, float *d_Cos, float *d_Sin)
 {
-  int gloID = blockIdx.x * blockDim.x + threadIdx.x;
+  //TODO calcular: int gloID = ?
+  int gloID = w * h + 1; //TODO
   if (gloID > w * h) return;      // in case of extra threads in block
 
   int xCent = w / 2;
@@ -110,14 +114,14 @@ int main (int argc, char **argv)
 
   PGMImage inImg (argv[1]);
 
-  // CUDA events para medir tiempo
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  
   int *cpuht;
   int w = inImg.x_dim;
   int h = inImg.y_dim;
+
+  // Los timers para medicion
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
 
   float* d_Cos;
   float* d_Sin;
@@ -163,18 +167,16 @@ int main (int argc, char **argv)
   //1 thread por pixel
   int blockNum = ceil (w * h / 256);
 
+  //CUDA medicion de tiempo
   cudaEventRecord(start);
   GPU_HoughTran <<< blockNum, 256 >>> (d_in, w, h, d_hough, rMax, rScale, d_Cos, d_Sin);
   cudaEventRecord(stop);
-
-  // mediciones de tiempo
-  cudaEventSynchronize(stop);
-  float milliseconds = 0;
-  cudaEventElapsedTime(&milliseconds, start, stop);
-  printf("Work took: %f ms\n", milliseconds);
-
   // get results from device
   cudaMemcpy (h_hough, d_hough, sizeof (int) * degreeBins * rBins, cudaMemcpyDeviceToHost);
+
+  cudaEventSynchronize(stop);
+  float program_timer = 0;
+  cudaEventElapsedTime(&program_timer, start, stop);
 
   // compare CPU and GPU results
   for (i = 0; i < degreeBins * rBins; i++)
@@ -183,16 +185,19 @@ int main (int argc, char **argv)
       printf ("Calculation mismatch at : %i %i %i\n", i, cpuht[i], h_hough[i]);
   }
   printf("Done!\n");
+  printf(" Time elapsed during the Hough Formula: %f\n\n", program_timer);
 
-  // clean-up
-  cudaFree ((void *) d_Cos);
-  cudaFree ((void *) d_Sin);
+  // cleanup de la memorisa usada
+
   free (pcCos);
   free (pcSin);
-  free (h_hough);
-  cudaFree ((void *) d_in);
-  cudaFree ((void *) d_hough);
-  cudaDeviceReset ();
+  free (h_hough)
+  cudaFree ((void *) d_in)
+  cudaFree ((void *) d_hough)
+  cudaDeviceReset();
+  
+
+
 
   return 0;
 }
